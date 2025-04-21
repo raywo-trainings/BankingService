@@ -1,0 +1,69 @@
+### GET bookings for account
+GET http://localhost:8080/api/v2/accounts/DE94860301200000000001/entries
+Accept: application/json
+
+
+### GET bookings for account in time range
+< {%
+  const from = "2025-04-02T10:00:00+02";
+  const to = "2025-04-12T14:00:00+02";
+
+  request.variables.set("from", encodeURIComponent(from));
+  request.variables.set("to", encodeURIComponent(to));
+%}
+GET http://localhost:8080/api/v2/accounts/DE00000000000000010002/entries?from={{from}}&to={{to}}
+Accept: application/json
+
+
+### GET bookings for account from starting date time
+< {%
+  const from = "2025-04-12T10:00:00+02";
+
+  request.variables.set("from", encodeURIComponent(from));
+%}
+GET http://localhost:8080/api/v2/accounts/DE00000000000000010002/entries?from={{from}}
+Accept: application/json
+
+
+### GET bookings for account to date time
+< {%
+  const to = "2025-04-12T10:00:00+02";
+
+  request.variables.set("to", encodeURIComponent(to));
+%}
+GET http://localhost:8080/api/v2/accounts/DE00000000000000010002/entries?to={{to}}
+Accept: application/json
+
+
+### Deposit 200 on Account
+< {%
+  request.variables.set("entryDate", new Date().toISOString())
+  // request.variables.set("entryDate", "2025-04-05T10:00:00+02")
+%}
+POST http://localhost:8080/api/v2/accounts/DE94860301200000000001/deposits
+Accept: application/json
+Content-Type: application/json
+
+{
+  "amount": 500.0,
+  "description": "Einzahlung",
+  "entryDate": "{{entryDate}}",
+  "type": "deposit"
+}
+
+
+### Withdraw 300 on Account
+< {%
+  request.variables.set("entryDate", new Date().toISOString())
+%}
+POST http://localhost:8080/api/v2/accounts/DE94860301200000000001/withdrawals
+Accept: application/json
+Content-Type: application/json
+
+{
+  "amount": 50.0,
+  "description": "Auszahlung",
+  "entryDate": "{{entryDate}}",
+  "type": "withdraw"
+}
+

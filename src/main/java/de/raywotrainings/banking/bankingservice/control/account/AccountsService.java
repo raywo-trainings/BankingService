@@ -80,7 +80,7 @@ public class AccountsService {
   }
 
 
-  public CurrentAccount addSavingsAccount(CurrentAccount account, Integer ownerId) {
+  public CurrentAccount addCurrentAccount(CurrentAccount account, Integer ownerId) {
     final String iban = ibanGenerator.getNextIban();
 
     try {

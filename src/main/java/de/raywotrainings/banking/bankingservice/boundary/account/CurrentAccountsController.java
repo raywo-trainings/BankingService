@@ -41,7 +41,7 @@ public class CurrentAccountsController {
   public CurrentAccountDTO addAccount(@Valid @RequestBody CurrentAccountDTO account) {
     final CurrentAccount currentAccount = currentAccountMapper.map(account);
     return (CurrentAccountDTO) mapper.map(
-        accountsService.addSavingsAccount(currentAccount, account.getOwnerId())
+        accountsService.addCurrentAccount(currentAccount, account.getOwnerId())
     );
 
   }

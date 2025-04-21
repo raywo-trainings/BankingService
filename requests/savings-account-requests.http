@@ -1,0 +1,35 @@
+### GET request to example server
+GET http://localhost:8080/api/v2/savings-accounts
+Accept: application/json
+
+### GET all current accounts
+GET http://localhost:8080/api/v2/savings-accounts
+Accept: application/json
+
+### GET savings account by iban
+GET http://localhost:8080/api/v2/savings-accounts/DE10005
+Accept: application/json
+
+### Create a new savings account
+POST http://localhost:8080/api/v2/savings-accounts
+Accept: application/json
+Content-Type: application/json
+
+{
+  "ownerId": 453,
+  "interestRate": 1.5
+}
+
+### Update a savings account
+PUT http://localhost:8080/api/v2/savings-accounts/DE10001
+Accept: application/json
+Content-Type: application/json
+
+{
+  "ownerId": 1,
+  "interestRate": 1.0
+}
+
+### Delete savings account
+DELETE http://localhost:8080/api/v2/savings-accounts/DE00000000000000010002
+

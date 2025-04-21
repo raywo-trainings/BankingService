@@ -1,0 +1,13 @@
+### GET all accounts regardless their type
+GET http://localhost:8080/api/v2/accounts
+Accept: application/json
+
+
+### GET an account by it’s IBAN regardless the type
+GET http://localhost:8080/api/v2/accounts/DE00000000000000010001
+Accept: application/json
+
+
+### Delete an account
+DELETE http://localhost:8080/api/v2/accounts/DE00000000000000010002
+Accept: application/json
