@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: BankingService
+
+  jackson:
+    deserialization:
+      use-big-decimal-for-floats: true
+    serialization:
+      write-bigdecimal-as-plain: true
+
+  datasource:
+    url: jdbc:h2:file:./.database/data
+    driver-class-name: org.h2.Driver
+    username: user
+    password:
+
+  h2:
+    console:
+      enabled: true
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+logging:
+  level:
+    web: debug
+
+bank:
+  name: RAYBANK
+  bic: 86030120
+  country-code: DE
+
+cors:
+  allow:
+    origins: ${CORS_ALLOWED_ORIGINS:*}
+    credentials: ${CORS_ALLOW_CREDENTIALS:false}
+    headers: ${CORS_ALLOWED_HEADERS:[]}
