@@ -1,5 +1,5 @@
 ### GET bookings for account
-GET http://localhost:8080/api/v2/accounts/DE94860301200000000001/entries
+GET http://localhost:8080/api/v2/accounts/DE71860301200000000027/entries
 Accept: application/json
 
 
