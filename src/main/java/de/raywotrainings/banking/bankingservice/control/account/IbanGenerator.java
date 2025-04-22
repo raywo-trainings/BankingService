@@ -6,8 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigInteger;
-import java.util.Comparator;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 
 @RequiredArgsConstructor
@@ -20,20 +20,9 @@ public class IbanGenerator {
 
   public String getNextIban() {
     final String bic = bankConfig.getBic();
-    Set<String> ibans = repo.getAllIbans();
+    Set<String> existingIbans = repo.getAllIbans();
 
-    if (ibans.isEmpty()) {
-      return generateIban(bic, 1);
-    }
-
-    List<String> sortedIbans = ibans.stream()
-        .sorted(Comparator.comparing(a -> a.substring(12)))
-        .toList();
-
-    String lastIban = sortedIbans.getLast();
-    long lastNumber = Long.parseLong(lastIban.substring(12));
-
-    return generateIban(bic, lastNumber + 1);
+    return generateIban(bic, getNextAccountNumber(existingIbans));
   }
 
 
@@ -65,5 +54,32 @@ public class IbanGenerator {
     return bankConfig.getCountryCode() + checkDigits + bban;
   }
 
+
+  private long getNextAccountNumber(Set<String> existingIbans) {
+    List<BigInteger> mappedIbans = existingIbans.stream()
+        .map(a -> a.substring(12))
+        .map(BigInteger::new)
+        .toList();
+
+    BigInteger randomAccountNo;
+
+    do {
+      randomAccountNo = getRandomAccountNumber();
+    } while (mappedIbans.contains(randomAccountNo));
+
+    return randomAccountNo.longValue();
+  }
+
+
+  private BigInteger getRandomAccountNumber() {
+    BigInteger minValue = BigInteger.ONE;
+    BigInteger maxValue = new BigInteger("99999");
+    BigInteger range = maxValue.subtract(minValue).add(BigInteger.ONE);
+    Random random = new Random();
+
+    return new BigInteger(range.bitLength(), random)
+        .mod(range)
+        .add(minValue);
+  }
 
 }
