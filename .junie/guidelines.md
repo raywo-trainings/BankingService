@@ -109,6 +109,12 @@ separation of concerns:
    the available amount using the `availableAmount()` method. Don’t do any 
    manual calculations like `getBalance().add(getOverdraftLimit).compareTo(...)`!
 
+### Clean Code Principle
+Adhere strongly to the Clean Code principles. A method should ideally not longer 
+than 20 lines. Create classes whenever the Single Responsibility Principle calls 
+for it. Prefer modern Java code over traditional code. Prefer lambdas to loops 
+or similar.
+
 ### Error Handling
 1. **Use appropriate exception types**:
    - Business exceptions should be meaningful and specific
