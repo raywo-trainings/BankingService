@@ -1,18 +1,17 @@
 package de.raywotrainings.banking.bankingservice.init;
 
+import de.raywotrainings.banking.bankingservice.control.account.Account;
 import de.raywotrainings.banking.bankingservice.control.account.AccountsService;
 import de.raywotrainings.banking.bankingservice.control.account.EntriesService;
 import de.raywotrainings.banking.bankingservice.control.account.Entry;
-import de.raywotrainings.banking.bankingservice.control.account.InsufficientFundsException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.ZonedDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 /**
  * Initializer responsible for creating and processing transactions.
@@ -51,178 +50,193 @@ public class TransactionInitializer {
   public void initialize(Map<String, List<String>> accountIbans) {
     log.info("Transaction initializer ready");
 
-    /*
-    1. Pick randomly 85% of the accounts and create initial transactions for
-       them. All others will have no transactions.
-    2. For every account in that list, create a first transaction with a random
-       amount. Make sure that savings accounts only have deposits. Create
-       deposits for 60% of the current accounts. For the remaining 40% of
-       the current accounts create a withdrawal within the available amount.
-       Make sure that some of the current accounts have a negative balance.
-    3. Pick randomly 35% of all accounts and create 10-15 transactions for them
-    4. Pick randomly 45% of all accounts and create 2-3 transactions for them
-     */
+    // Combine all account IBANs into a single list
+    List<String> allAccountIbans = new ArrayList<>();
+    allAccountIbans.addAll(accountIbans.get("current"));
+    allAccountIbans.addAll(accountIbans.get("savings"));
 
-    createTransactions(accountIbans);
+    // 1. Pick randomly 85% of the accounts for transactions
+    int accountsWithTransactionsCount = (int) Math.ceil(allAccountIbans.size() * ACCOUNTS_WITH_TRANSACTIONS_PERCENTAGE);
+    Collections.shuffle(allAccountIbans);
+    List<String> accountsWithTransactions = allAccountIbans.subList(0, accountsWithTransactionsCount);
+
+    log.info("Creating transactions for {} out of {} accounts", accountsWithTransactionsCount, allAccountIbans.size());
+
+    // 2. Create initial transactions for selected accounts
+    createInitialTransactionsForSavingsAccounts(accountIbans.get("savings"));
+    createInitialTransactionsForCurrentAccounts(accountIbans.get("current"));
+
+    // 3. Create 10-15 transactions for 35% of accounts
+    int manyTransactionsCount = (int) Math.ceil(allAccountIbans.size() * 0.35);
+    Collections.shuffle(allAccountIbans);
+    List<String> accountsWithManyTransactions = allAccountIbans.subList(0, manyTransactionsCount);
+    createMultipleTransactions(accountsWithManyTransactions, accountIbans.get("savings"),
+        MIN_MANY_TRANSACTIONS, MAX_ADDITIONAL_MANY_TRANSACTIONS, MANY_TRANSACTIONS_WEEKS);
+
+    // 4. Create 2-3 transactions for 45% of accounts
+    int fewTransactionsCount = (int) Math.ceil(allAccountIbans.size() * 0.45);
+    Collections.shuffle(allAccountIbans);
+    List<String> accountsWithFewTransactions = allAccountIbans.subList(0, fewTransactionsCount);
+    createMultipleTransactions(accountsWithFewTransactions, accountIbans.get("savings"),
+        MIN_FEW_TRANSACTIONS, MAX_ADDITIONAL_FEW_TRANSACTIONS, FEW_TRANSACTIONS_WEEKS);
+
+    log.info("Transaction initialization completed");
   }
 
 
-  /**
-   * Creates transactions for the given accounts.
-   * First creates an initial transaction for each account according to its type,
-   * then creates additional transactions for some accounts.
-   *
-   * @param accountIbans List of account IBANs to create transactions for
-   */
-  private void createTransactions(Map<String, List<String>> accountIbans) {
-    List<String> allIbans = accountIbans.values()
-        .stream()
-        .flatMap(List::stream)
-        .toList();
+  private void createInitialTransactionsForSavingsAccounts(List<String> accounts) {
+    BigDecimal amount = generateRandomAmount(BigDecimal.valueOf(MAX_ADDITIONAL_TRANSACTION_AMOUNT));
+    ZonedDateTime transactionDate = generateRandomPastDate(
+    );
 
-    for (String iban : allIbans) {
-      createInitialTransaction(iban);
+    accounts.forEach(iban ->
+        createEntry(
+            iban,
+            INITIAL_DEPOSIT_DESCRIPTION,
+            amount,
+            Entry.Type.DEPOSIT,
+            transactionDate
+        )
+    );
+  }
+
+
+  private void createInitialTransactionsForCurrentAccounts(List<String> ibans) {
+    ZonedDateTime transactionDate = generateRandomPastDate(
+    );
+
+    Collections.shuffle(ibans);
+    int sixtyPercentAccounts = (int) Math.ceil(ibans.size() * 0.6);
+
+    // Create an initial deposit for 60% of accounts
+    for (int i = 0; i < sixtyPercentAccounts; i++) {
+      createEntry(
+          ibans.get(i),
+          INITIAL_DEPOSIT_DESCRIPTION,
+          generateRandomAmount(BigDecimal.valueOf(MAX_ADDITIONAL_TRANSACTION_AMOUNT)),
+          Entry.Type.DEPOSIT,
+          transactionDate
+      );
     }
 
-    // Then create additional transactions for some accounts
-    String accountWithManyTransactions = allIbans.get(random.nextInt(allIbans.size()));
+    // Create initial withdrawal for remaining 40% of accounts
+    for (int i = sixtyPercentAccounts; i < ibans.size(); i++) {
+      String iban = ibans.get(i);
+      Account account = accountsService.getAccountByIban(iban);
+      BigDecimal availableAmount = account.availableAmount();
+      BigDecimal amount = generateRandomAmount(availableAmount);
 
-    for (String iban : allIbans) {
-      if (iban.equals(accountWithManyTransactions)) {
-        createManyTransactions(iban);
-      } else if (random.nextDouble() < ACCOUNTS_WITH_TRANSACTIONS_PERCENTAGE) {
-        int transactionCount = MIN_FEW_TRANSACTIONS + random.nextInt(MAX_ADDITIONAL_FEW_TRANSACTIONS + 1);
-        createTransactionsForAccount(iban, transactionCount);
-      } else {
-        log.info("Account with IBAN: {} has only the initial transaction", iban);
+      // Ensure withdrawal amount is within available amount
+//      BigDecimal withdrawalAmount = availableAmount.min(amount.multiply(BigDecimal.valueOf(0.95)));
+      createEntry(
+          iban,
+          getRandomTransactionDescription(),
+          amount,
+          Entry.Type.WITHDRAW,
+          transactionDate
+      );
+    }
+  }
+
+
+  private void createMultipleTransactions(List<String> accounts,
+                                          List<String> savingsAccounts,
+                                          int minTransactions,
+                                          int maxAdditionalTransactions,
+                                          int weeksSpan) {
+    for (String iban : accounts) {
+      int transactionCount = minTransactions + random.nextInt(maxAdditionalTransactions + 1);
+
+      for (int i = 0; i < transactionCount; i++) {
+        BigDecimal amount = generateRandomAmount(BigDecimal.valueOf(MAX_ADDITIONAL_TRANSACTION_AMOUNT));
+        ZonedDateTime transactionDate = generateRandomRecentDate(weeksSpan);
+        String description = getRandomTransactionDescription();
+
+        // For current accounts: random deposits and withdrawals
+        Account account = accountsService.getAccountByIban(iban);
+
+        if (random.nextBoolean()) {
+          // Create deposit
+          createEntry(
+              iban,
+              description,
+              amount,
+              Entry.Type.DEPOSIT,
+              transactionDate
+          );
+        } else {
+          // Create withdrawal if possible
+          BigDecimal availableAmount = account.availableAmount();
+
+          // Ensure withdrawal amount is within available amount
+          BigDecimal withdrawalAmount = amount.min(availableAmount);
+          if (withdrawalAmount.compareTo(BigDecimal.ZERO) >= 0) {
+            createEntry(
+                iban,
+                description,
+                withdrawalAmount,
+                Entry.Type.WITHDRAW,
+                transactionDate
+            );
+          } else {
+            // If no funds available, create a deposit instead
+            createEntry(
+                iban,
+                description,
+                amount,
+                Entry.Type.DEPOSIT,
+                transactionDate
+            );
+          }
+        }
       }
     }
   }
 
 
-  /**
-   * Creates the initial transaction for an account based on its type.
-   * This method determines the appropriate amount and type based on the account type.
-   *
-   * @param iban The IBAN of the account to create the initial transaction for
-   */
-  private void createInitialTransaction(String iban) {
-    // Generate a random date in the past for the initial transaction
-    int monthsAgo = MIN_DEPOSIT_MONTHS_AGO + random.nextInt(MAX_ADDITIONAL_DEPOSIT_MONTHS + 1);
-    ZonedDateTime transactionDate = ZonedDateTime.now().minusMonths(monthsAgo);
-
-    // Create the entry with a random amount
-    Entry entry = new Entry(
-        iban,
-        INITIAL_DEPOSIT_DESCRIPTION,
-        transactionDate,
-        BigDecimal.ZERO,
-        Entry.Type.DEPOSIT
-    );
-
-    // The specific account initializers will handle setting the amount and type
-    processEntry(entry);
+  private void createEntry(String iban,
+                           String description,
+                           BigDecimal amount,
+                           Entry.Type type,
+                           ZonedDateTime date) {
+    Entry entry = new Entry(iban, description, date, amount, type);
+    entriesService.makeEntry(iban, entry);
+    log.debug("Created {} of {} for account {}", type, amount, iban);
   }
 
 
-  /**
-   * Creates many transactions for an account over a longer period.
-   *
-   * @param iban The IBAN of the account to create transactions for
-   */
-  private void createManyTransactions(String iban) {
-    int transactionCount = MIN_MANY_TRANSACTIONS + random.nextInt(MAX_ADDITIONAL_MANY_TRANSACTIONS + 1);
-    log.info("Creating {} transactions for account with IBAN: {}", transactionCount, iban);
-
-    ZonedDateTime startDate = ZonedDateTime.now().minusDays(MANY_TRANSACTIONS_WEEKS * 7);
-    createRandomTransactions(iban, transactionCount, startDate, MANY_TRANSACTIONS_WEEKS);
+  private BigDecimal generateRandomAmount(BigDecimal maxAmount) {
+    int amount = MIN_TRANSACTION_AMOUNT + random.nextInt(maxAmount.intValue() + 1);
+    return BigDecimal.valueOf(amount);
   }
 
 
-  /**
-   * Creates a few transactions for an account over a shorter period.
-   *
-   * @param iban  The IBAN of the account to create transactions for
-   * @param count The number of transactions to create
-   */
-  private void createTransactionsForAccount(String iban, int count) {
-    log.info("Creating {} transactions for account with IBAN: {}", count, iban);
-
-    ZonedDateTime startDate = ZonedDateTime.now().minusDays(FEW_TRANSACTIONS_WEEKS * 7);
-    createRandomTransactions(iban, count, startDate, FEW_TRANSACTIONS_WEEKS);
+  private ZonedDateTime generateRandomPastDate() {
+    int additionalMonths = random.nextInt(MAX_ADDITIONAL_DEPOSIT_MONTHS + 1);
+    int monthsAgo = MIN_DEPOSIT_MONTHS_AGO + additionalMonths;
+    return ZonedDateTime.now().minusMonths(monthsAgo)
+        .withDayOfMonth(1 + random.nextInt(28))
+        .withHour(9 + random.nextInt(9))
+        .withMinute(random.nextInt(60))
+        .withSecond(random.nextInt(60));
   }
 
 
-  /**
-   * Creates random transactions for an account over the specified period.
-   *
-   * @param iban      The IBAN of the account to create transactions for
-   * @param count     The number of transactions to create
-   * @param startDate The start date for the transactions
-   * @param weeks     The number of weeks to distribute transactions over
-   */
-  private void createRandomTransactions(String iban,
-                                        int count,
-                                        ZonedDateTime startDate,
-                                        int weeks) {
-    for (int i = 0; i < count; i++) {
-      long minutesToAdd = random.nextInt(weeks * 7 * 24 * 60);
-      ZonedDateTime transactionDate = startDate.plusMinutes(minutesToAdd);
-      createTransaction(iban, transactionDate);
-    }
+  private ZonedDateTime generateRandomRecentDate(int weeksSpan) {
+    ZonedDateTime baseDate = ZonedDateTime.now().minusWeeks(random.nextInt(weeksSpan) + 1);
+
+    // Adjust to a weekday (Monday to Friday)
+    DayOfWeek dayOfWeek = DayOfWeek.of(1 + random.nextInt(5)); // Monday to Friday
+    int daysToAdd = (dayOfWeek.getValue() - baseDate.getDayOfWeek().getValue() + 7) % 7;
+
+    return baseDate.plusDays(daysToAdd)
+        .withHour(9 + random.nextInt(9))
+        .withMinute(random.nextInt(60))
+        .withSecond(random.nextInt(60));
   }
 
 
-  /**
-   * Creates a single transaction for an account on the specified date.
-   *
-   * @param iban The IBAN of the account to create the transaction for
-   * @param date The date of the transaction
-   */
-  private void createTransaction(String iban, ZonedDateTime date) {
-    BigDecimal amount = generateTransactionAmount();
-
-    String description = TRANSACTION_DESCRIPTIONS[random.nextInt(TRANSACTION_DESCRIPTIONS.length)];
-
-    // Default to deposit, will be determined by account-specific initializers later
-    Entry.Type type = Entry.Type.DEPOSIT;
-
-    Entry entry = new Entry(
-        iban,
-        description,
-        date,
-        amount,
-        type
-    );
-
-    try {
-      processEntry(entry);
-    } catch (InsufficientFundsException e) {
-      // If withdrawal fails due to insufficient funds, make it a deposit instead
-      entry.setType(Entry.Type.DEPOSIT);
-      processEntry(entry);
-    }
-  }
-
-
-  /**
-   * Processes an entry by making the entry through the entries service.
-   *
-   * @param entry The entry to process
-   */
-  public void processEntry(Entry entry) {
-    entriesService.makeEntry(entry.getIban(), entry);
-  }
-
-
-  /**
-   * Generates a random transaction amount.
-   *
-   * @return A random transaction amount
-   */
-  public BigDecimal generateTransactionAmount() {
-    return new BigDecimal(
-        MIN_TRANSACTION_AMOUNT + random.nextInt(MAX_ADDITIONAL_TRANSACTION_AMOUNT + 1)
-    );
+  private String getRandomTransactionDescription() {
+    return TRANSACTION_DESCRIPTIONS[random.nextInt(TRANSACTION_DESCRIPTIONS.length)];
   }
 }
