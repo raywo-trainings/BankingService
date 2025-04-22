@@ -1,0 +1,68 @@
+{
+  "version": "1.0",
+  "domain": {
+    "name": "Banking Service",
+    "description": "Eine Java-basierte Bankanwendung zur Verwaltung von Konten, Kunden und Transaktionen",
+    "concepts": [
+      {
+        "name": "Account",
+        "description": "Basisklasse für alle Kontoarten mit gemeinsamen Eigenschaften wie IBAN, Kontostand und Besitzer",
+        "relationships": ["Client", "Entry"]
+      },
+      {
+        "name": "CurrentAccount",
+        "description": "Girokonto mit Überziehungslimit und Überziehungszinssatz",
+        "extends": "Account"
+      },
+      {
+        "name": "SavingsAccount",
+        "description": "Sparkonto mit Zinssatz und Mindesteinlage",
+        "extends": "Account"
+      },
+      {
+        "name": "Client",
+        "description": "Kunde der Bank mit persönlichen Informationen und zugeordneten Konten",
+        "relationships": ["Account"]
+      },
+      {
+        "name": "Entry",
+        "description": "Buchung auf einem Konto (Einzahlung, Auszahlung, Überweisung)",
+        "relationships": ["Account"]
+      }
+    ]
+  },
+  "architecture": {
+    "pattern": "Boundary-Control-Entity",
+    "layers": [
+      {
+        "name": "boundary",
+        "description": "REST-Controller und DTOs für die externe Kommunikation",
+        "packages": ["boundary.account", "boundary.client", "boundary.mapper", "boundary.shared"]
+      },
+      {
+        "name": "control",
+        "description": "Geschäftslogik und Domain-Objekte",
+        "packages": ["control.account", "control.client", "control.mapper", "control.shared"]
+      },
+      {
+        "name": "entity",
+        "description": "Persistenzschicht mit JPA-Entitäten und Repositories",
+        "packages": ["entity.account", "entity.client"]
+      }
+    ]
+  },
+  "conventions": {
+    "naming": {
+      "classes": "PascalCase",
+      "methods": "camelCase",
+      "variables": "camelCase",
+      "constants": "UPPER_SNAKE_CASE"
+    },
+    "structure": {
+      "controllers": "Alle Controller befinden sich im boundary-Package und enden mit 'Controller'",
+      "services": "Alle Services befinden sich im control-Package und enden mit 'Service'",
+      "entities": "Alle Entitäten befinden sich im entity-Package und enden mit 'Entity'",
+      "repositories": "Alle Repositories befinden sich im entity-Package und enden mit 'Repository'"
+    }
+  }
+}

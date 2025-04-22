@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "models": {
+    "default": "gpt-4",
+    "alternatives": ["gpt-3.5-turbo", "claude-3-opus"]
+  },
+  "context": {
+    "includeProject": true,
+    "maxFiles": 10,
+    "maxTokens": 8000,
+    "prioritizeOpenFiles": true
+  },
+  "behavior": {
+    "autoComplete": {
+      "enabled": true,
+      "triggerCharacters": [".", " "],
+      "delay": 300
+    },
+    "inlineAssistance": {
+      "enabled": true,
+      "suggestionsPerRequest": 3
+    },
+    "codeGeneration": {
+      "style": "concise",
+      "includeComments": true,
+      "followProjectConventions": true
+    }
+  },
+  "language": {
+    "preferred": "de",
+    "fallback": "en"
+  },
+  "projectSpecific": {
+    "domainKnowledge": [
+      "banking",
+      "financial-services",
+      "account-management"
+    ],
+    "conventions": {
+      "naming": "camelCase",
+      "indentation": "spaces",
+      "indentSize": 2
+    }
+  },
+  "security": {
+    "excludePatterns": [
+      "**/password*",
+      "**/secret*",
+      "**/credential*",
+      "**/.env*"
+    ],
+    "excludeFileTypes": [
+      ".key",
+      ".pem",
+      ".env"
+    ]
+  }
+}

@@ -46,6 +46,11 @@ public abstract class Account {
   }
 
 
+  public BigDecimal availableAmount() {
+    return balance;
+  }
+
+
   private void validateAmount(BigDecimal amount) {
     if (amount.compareTo(BigDecimal.ZERO) < 0) {
       throw new IllegalArgumentException("amount must be positive");

@@ -38,6 +38,12 @@ public class CurrentAccount extends Account {
 
 
   @Override
+  public BigDecimal availableAmount() {
+    return this.getBalance().add(overdraftLimit);
+  }
+
+
+  @Override
   public String toString() {
     return "(Girokonto) " + super.toString() + " Dispo: "
         + getOverdraftLimit() + "€, Dispozins: " + getOverdraftInterestRate() + "%";

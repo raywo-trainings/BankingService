@@ -1,0 +1,52 @@
+{
+  "version": "1.0",
+  "customPrompts": [
+    {
+      "name": "generateAccountClass",
+      "description": "Generate a new account type class",
+      "prompt": "Erstelle eine neue Kontoklasse, die von Account erbt. Folge den Konventionen des Projekts und implementiere alle notwendigen Methoden. Die Klasse sollte die folgenden Eigenschaften haben: {{properties}}",
+      "context": ["Account.java", "CurrentAccount.java", "SavingsAccount.java"]
+    },
+    {
+      "name": "implementTransaction",
+      "description": "Implement a banking transaction",
+      "prompt": "Implementiere eine Transaktion zwischen zwei Konten mit den folgenden Details: {{details}}. Stelle sicher, dass alle Fehlerbehandlungen und Validierungen korrekt implementiert sind.",
+      "context": ["AccountsService.java", "EntriesService.java"]
+    },
+    {
+      "name": "createDTOMapping",
+      "description": "Create DTO mapping for a domain object",
+      "prompt": "Erstelle ein DTO und die entsprechenden Mapper-Methoden für die folgende Domain-Klasse: {{className}}. Folge den bestehenden Konventionen im Projekt.",
+      "context": ["AccountDTOMapper.java", "EntryDTOMapper.java"]
+    },
+    {
+      "name": "addValidation",
+      "description": "Add validation to a domain object",
+      "prompt": "Füge Validierungslogik zu der folgenden Klasse hinzu: {{className}}. Berücksichtige die folgenden Geschäftsregeln: {{rules}}",
+      "context": ["Account.java", "Entry.java"]
+    },
+    {
+      "name": "documentAPI",
+      "description": "Document a REST API endpoint",
+      "prompt": "Dokumentiere den folgenden REST-API-Endpunkt mit Swagger/OpenAPI-Annotationen: {{endpoint}}. Beschreibe alle Parameter, Rückgabewerte und möglichen Fehler.",
+      "context": ["AccountsController.java", "CurrentAccountsController.java"]
+    }
+  ],
+  "snippets": [
+    {
+      "name": "newEntry",
+      "description": "Create a new entry for an account",
+      "code": "Entry entry = new Entry();\nentry.setAmount(new BigDecimal(\"{{amount}}\"));\nentry.setType(Entry.Type.{{type}});\nentry.setDescription(\"{{description}}\");\nentry.setAccount({{account}});\nentry.setBookingDate(LocalDateTime.now());\nreturn entry;"
+    },
+    {
+      "name": "accountValidation",
+      "description": "Standard account validation",
+      "code": "if ({{account}} == null) {\n  throw new IllegalArgumentException(\"Account cannot be null\");\n}\nif ({{account}}.getIban() == null || {{account}}.getIban().isEmpty()) {\n  throw new IllegalArgumentException(\"IBAN cannot be null or empty\");\n}\nif ({{account}}.getOwner() == null) {\n  throw new IllegalArgumentException(\"Account owner cannot be null\");\n}"
+    },
+    {
+      "name": "exceptionHandler",
+      "description": "Standard exception handler",
+      "code": "@ExceptionHandler({{exceptionType}}.class)\npublic ResponseEntity<ConstraintViolationDTO> handle{{exceptionName}}({{exceptionType}} ex) {\n  ConstraintViolationDTO dto = ConstraintViolationDTO.builder()\n      .message(ex.getMessage())\n      .timestamp(LocalDateTime.now())\n      .build();\n  return new ResponseEntity<>(dto, HttpStatus.{{statusCode}});\n}"
+    }
+  ]
+}

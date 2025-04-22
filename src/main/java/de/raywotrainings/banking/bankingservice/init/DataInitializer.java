@@ -28,6 +28,7 @@ public class DataInitializer {
   private static final int MIN_ACCOUNTS = 20;
   private static final int MAX_ADDITIONAL_ACCOUNTS = 10;
   private static final double ACCOUNTS_WITH_TRANSACTIONS_PERCENTAGE = 0.7;
+  private static final double CURRENT_ACCOUNTS_WITH_NEGATIVE_BALANCE_PERCENTAGE = 0.3;
 
   // Constants for current accounts
   private static final int MIN_CURRENT_ACCOUNT_DEPOSIT = 1000;
@@ -83,6 +84,8 @@ public class DataInitializer {
   /**
    * Initializes the database with sample data when the application starts.
    * Only runs if the database is empty.
+   * First creates clients and accounts (without transactions),
+   * then generates transactions for the accounts.
    */
   @EventListener(ApplicationReadyEvent.class)
   public void initData() {
@@ -93,9 +96,15 @@ public class DataInitializer {
 
     log.info("Initializing database with sample data");
 
+    // First create clients and accounts (without transactions)
     List<Client> clients = createClients();
-    List<String> accountIbans = createAccounts(clients);
-    createTransactions(accountIbans);
+    Map<String, List<String>> accountIbans = createAccounts(clients);
+    List<String> allAccountIbans = new ArrayList<>();
+    allAccountIbans.addAll(accountIbans.get("current"));
+    allAccountIbans.addAll(accountIbans.get("savings"));
+
+    // Then generate transactions for the accounts
+    createTransactions(allAccountIbans, accountIbans.get("current"));
 
     log.info("Database initialization completed");
   }
@@ -135,10 +144,15 @@ public class DataInitializer {
    * Randomly creates current or savings accounts with initial deposits.
    *
    * @param clients List of clients to create accounts for
-   * @return List of IBANs for the created accounts
+   * @return Map of IBANs for the created accounts
    */
-  private List<String> createAccounts(List<Client> clients) {
-    List<String> accountIbans = new ArrayList<>();
+  private Map<String, List<String>> createAccounts(List<Client> clients) {
+    Map<String, List<String>> accountIbans = new HashMap<>();
+    List<String> currentAccountIbans = new ArrayList<>();
+    List<String> savingsAccountIbans = new ArrayList<>();
+    accountIbans.put("current", currentAccountIbans);
+    accountIbans.put("savings", savingsAccountIbans);
+
     int totalAccounts = MIN_ACCOUNTS + random.nextInt(MAX_ADDITIONAL_ACCOUNTS + 1);
 
     for (int i = 0; i < totalAccounts; i++) {
@@ -147,10 +161,10 @@ public class DataInitializer {
 
       if (random.nextBoolean()) {
         String iban = createCurrentAccount(client);
-        accountIbans.add(iban);
+        currentAccountIbans.add(iban);
       } else {
         String iban = createSavingsAccount(client);
-        accountIbans.add(iban);
+        savingsAccountIbans.add(iban);
       }
     }
 
@@ -159,17 +173,12 @@ public class DataInitializer {
 
 
   /**
-   * Creates a current account for the specified client with an initial deposit.
+   * Creates a current account for the specified client without an initial deposit.
    *
    * @param client The client to create the account for
    * @return The IBAN of the created account
    */
   private String createCurrentAccount(Client client) {
-    BigDecimal initialDeposit = generateInitialDeposit(
-        MIN_CURRENT_ACCOUNT_DEPOSIT,
-        MAX_ADDITIONAL_CURRENT_DEPOSIT
-    );
-
     BigDecimal overdraftLimit = generateOverdraftLimit();
     BigDecimal overdraftInterestRate = generateInterestRate(
         MIN_OVERDRAFT_INTEREST_RATE,
@@ -185,27 +194,21 @@ public class DataInitializer {
     );
 
     CurrentAccount savedAccount = accountsService.addCurrentAccount(account, client.getId());
-    makeInitialDeposit(savedAccount.getIban(), initialDeposit);
 
-    log.info("Created current account with IBAN: {} for client: {} {}, initial deposit: {}",
-        savedAccount.getIban(), client.getFirstname(), client.getLastname(), initialDeposit);
+    log.info("Created current account with IBAN: {} for client: {} {}, overdraft limit: {}",
+        savedAccount.getIban(), client.getFirstname(), client.getLastname(), overdraftLimit);
 
     return savedAccount.getIban();
   }
 
 
   /**
-   * Creates a savings account for the specified client with an initial deposit.
+   * Creates a savings account for the specified client without an initial deposit.
    *
    * @param client The client to create the account for
    * @return The IBAN of the created account
    */
   private String createSavingsAccount(Client client) {
-    BigDecimal initialDeposit = generateInitialDeposit(
-        MIN_SAVINGS_ACCOUNT_DEPOSIT,
-        MAX_ADDITIONAL_SAVINGS_DEPOSIT
-    );
-
     BigDecimal interestRate = generateInterestRate(
         MIN_SAVINGS_INTEREST_RATE,
         MAX_ADDITIONAL_SAVINGS_INTEREST
@@ -219,10 +222,9 @@ public class DataInitializer {
     );
 
     SavingsAccount savedAccount = accountsService.addSavingsAccount(account, client.getId());
-    makeInitialDeposit(savedAccount.getIban(), initialDeposit);
 
-    log.info("Created savings account with IBAN: {} for client: {} {}, initial deposit: {}",
-        savedAccount.getIban(), client.getFirstname(), client.getLastname(), initialDeposit);
+    log.info("Created savings account with IBAN: {} for client: {} {}, interest rate: {}",
+        savedAccount.getIban(), client.getFirstname(), client.getLastname(), interestRate);
 
     return savedAccount.getIban();
   }
@@ -270,35 +272,22 @@ public class DataInitializer {
 
 
   /**
-   * Makes an initial deposit to the specified account.
-   * The deposit date is set to a random date in the past.
-   *
-   * @param iban   The IBAN of the account to deposit to
-   * @param amount The amount to deposit
-   */
-  private void makeInitialDeposit(String iban, BigDecimal amount) {
-    int monthsAgo = MIN_DEPOSIT_MONTHS_AGO + random.nextInt(MAX_ADDITIONAL_DEPOSIT_MONTHS + 1);
-    ZonedDateTime depositDate = ZonedDateTime.now().minusMonths(monthsAgo);
-
-    Entry depositEntry = new Entry(
-        iban,
-        INITIAL_DEPOSIT_DESCRIPTION,
-        depositDate,
-        amount,
-        Entry.Type.DEPOSIT
-    );
-
-    entriesService.makeEntry(iban, depositEntry);
-  }
-
-
-  /**
    * Creates transactions for the given accounts.
-   * One account will have many transactions, some will have a few, and some none.
+   * First creates an initial transaction for each account according to its type,
+   * then creates additional transactions for some accounts.
    *
    * @param accountIbans List of account IBANs to create transactions for
    */
-  private void createTransactions(List<String> accountIbans) {
+  private void createTransactions(List<String> accountIbans, List<String> currentAccountIbans) {
+    // First create initial transactions for all accounts
+    for (String iban : accountIbans) {
+      createInitialTransaction(iban);
+    }
+
+    // Ensure some current accounts have negative balances
+    ensureCurrentAccountsWithNegativeBalances(currentAccountIbans);
+
+    // Then create additional transactions for some accounts
     String accountWithManyTransactions = accountIbans.get(random.nextInt(accountIbans.size()));
 
     for (String iban : accountIbans) {
@@ -308,9 +297,67 @@ public class DataInitializer {
         int transactionCount = MIN_FEW_TRANSACTIONS + random.nextInt(MAX_ADDITIONAL_FEW_TRANSACTIONS + 1);
         createTransactionsForAccount(iban, transactionCount);
       } else {
-        log.info("Account with IBAN: {} has no transactions", iban);
+        log.info("Account with IBAN: {} has only the initial transaction", iban);
       }
     }
+  }
+
+
+  /**
+   * Creates the initial transaction for an account based on its type.
+   * For savings accounts, the first transaction must be a deposit.
+   * For current accounts, the first transaction can be a withdrawal if within overdraft limit.
+   *
+   * @param iban The IBAN of the account to create the initial transaction for
+   */
+  private void createInitialTransaction(String iban) {
+    Account account = accountsService.getAccountByIban(iban);
+
+    // Generate a random date in the past for the initial transaction
+    int monthsAgo = MIN_DEPOSIT_MONTHS_AGO + random.nextInt(MAX_ADDITIONAL_DEPOSIT_MONTHS + 1);
+    ZonedDateTime transactionDate = ZonedDateTime.now().minusMonths(monthsAgo);
+
+    // Create the entry with a random amount
+    Entry entry = new Entry(
+        iban,
+        INITIAL_DEPOSIT_DESCRIPTION,
+        transactionDate,
+        BigDecimal.ZERO,
+        Entry.Type.DEPOSIT
+    );
+
+    if (account instanceof SavingsAccount) {
+      // For savings accounts, first transaction must be a deposit
+      BigDecimal amount = generateInitialDeposit(
+          MIN_SAVINGS_ACCOUNT_DEPOSIT,
+          MAX_ADDITIONAL_SAVINGS_DEPOSIT
+      );
+      entry.setAmount(amount);
+      entry.setType(Entry.Type.DEPOSIT);
+
+      log.info("Created initial deposit of {} for savings account with IBAN: {}", amount, iban);
+    } else if (account instanceof CurrentAccount) {
+      // For current accounts, first transaction can be a withdrawal if within overdraft limit
+      BigDecimal amount = generateInitialDeposit(
+          MIN_CURRENT_ACCOUNT_DEPOSIT,
+          MAX_ADDITIONAL_CURRENT_DEPOSIT
+      );
+      entry.setAmount(amount);
+
+      // Randomly decide if this should be a deposit or withdrawal
+      if (random.nextBoolean() && account.availableAmount().compareTo(amount) >= 0) {
+        // Make it a withdrawal (will result in a negative balance within overdraft limit)
+        entry.setType(Entry.Type.WITHDRAW);
+        log.info("Created initial withdrawal of {} for current account with IBAN: {}", amount, iban);
+      } else {
+        // Make it a deposit
+        entry.setType(Entry.Type.DEPOSIT);
+        log.info("Created initial deposit of {} for current account with IBAN: {}", amount, iban);
+      }
+    }
+
+    // Process the transaction
+    entriesService.makeEntry(iban, entry);
   }
 
 
@@ -413,14 +460,16 @@ public class DataInitializer {
 
   /**
    * Determines the transaction type for a savings account.
-   * Only allows withdrawals if there's enough balance.
+   * Only allows withdrawals if there's enough available amount.
+   * Uses the availableAmount() method to determine the withdrawal limit.
    *
    * @param account The savings account
    * @param amount  The transaction amount
    * @return The determined transaction type
    */
   private Entry.Type determineSavingsAccountTransactionType(SavingsAccount account, BigDecimal amount) {
-    if (account.getBalance().compareTo(amount) >= 0 && random.nextBoolean()) {
+    // For savings accounts, availableAmount() returns just the balance
+    if (account.availableAmount().compareTo(amount) >= 0 && random.nextBoolean()) {
       return Entry.Type.WITHDRAW;
     } else {
       return Entry.Type.DEPOSIT;
@@ -430,18 +479,106 @@ public class DataInitializer {
 
   /**
    * Determines the transaction type for a current account.
-   * Allows withdrawals if within balance + overdraft limit.
+   * Allows withdrawals if within the available amount (balance + overdraft limit).
+   * Uses the availableAmount() method to determine the withdrawal limit.
+   * This ensures current accounts can have negative balances within their overdraft limits.
    *
    * @param account The current account
    * @param amount  The transaction amount
    * @return The determined transaction type
    */
   private Entry.Type determineCurrentAccountTransactionType(CurrentAccount account, BigDecimal amount) {
-    if (account.getBalance().add(account.getOverdraftLimit()).compareTo(amount) >= 0
-        && random.nextBoolean()) {
+    // For current accounts, availableAmount() returns balance + overdraft limit
+    if (account.availableAmount().compareTo(amount) >= 0 && random.nextBoolean()) {
       return Entry.Type.WITHDRAW;
     } else {
       return Entry.Type.DEPOSIT;
+    }
+  }
+
+
+  /**
+   * Ensures that a certain percentage of current accounts have negative balances.
+   * Uses the CURRENT_ACCOUNTS_WITH_NEGATIVE_BALANCE_PERCENTAGE constant to determine
+   * how many accounts should have negative balances.
+   * 
+   * @param currentAccountIbans List of current account IBANs
+   */
+  private void ensureCurrentAccountsWithNegativeBalances(List<String> currentAccountIbans) {
+    if (currentAccountIbans.isEmpty()) {
+      return;
+    }
+
+    // Shuffle the list to randomize which accounts will have negative balances
+    List<String> shuffledIbans = new ArrayList<>(currentAccountIbans);
+    Collections.shuffle(shuffledIbans, random);
+
+    // Calculate how many accounts should have negative balances
+    int accountsToMakeNegative = (int) Math.ceil(
+        shuffledIbans.size() * CURRENT_ACCOUNTS_WITH_NEGATIVE_BALANCE_PERCENTAGE);
+
+    log.info("Ensuring {} out of {} current accounts have negative balances", 
+        accountsToMakeNegative, currentAccountIbans.size());
+
+    // Process the first N accounts to ensure they have negative balances
+    for (int i = 0; i < accountsToMakeNegative && i < shuffledIbans.size(); i++) {
+      String iban = shuffledIbans.get(i);
+      CurrentAccount account = (CurrentAccount) accountsService.getAccountByIban(iban);
+
+      // Skip accounts that already have negative balances
+      if (account.getBalance().compareTo(BigDecimal.ZERO) < 0) {
+        continue;
+      }
+
+      // Calculate a withdrawal amount that will result in a negative balance
+      // but still within the overdraft limit
+      BigDecimal balance = account.getBalance();
+      BigDecimal overdraftLimit = account.getOverdraftLimit();
+
+      // If balance is zero or account has no overdraft limit, skip it
+      if (balance.compareTo(BigDecimal.ZERO) <= 0 || overdraftLimit.compareTo(BigDecimal.ZERO) <= 0) {
+        continue;
+      }
+
+      // Calculate a withdrawal amount between balance and balance + 90% of overdraft limit
+      BigDecimal maxWithdrawal = balance.add(overdraftLimit.multiply(new BigDecimal("0.9")));
+      BigDecimal minWithdrawal = balance.add(new BigDecimal("0.1"));
+      BigDecimal withdrawalAmount;
+
+      if (maxWithdrawal.compareTo(minWithdrawal) <= 0) {
+        withdrawalAmount = minWithdrawal;
+      } else {
+        // Generate a random amount between minWithdrawal and maxWithdrawal
+        BigDecimal range = maxWithdrawal.subtract(minWithdrawal);
+        BigDecimal randomFactor = new BigDecimal(random.nextDouble());
+        withdrawalAmount = minWithdrawal.add(range.multiply(randomFactor));
+      }
+
+      // Round to whole numbers for simplicity
+      withdrawalAmount = withdrawalAmount.setScale(0, java.math.RoundingMode.DOWN);
+
+      // Skip if withdrawal amount is zero or negative
+      if (withdrawalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+        continue;
+      }
+
+      // Create and process the withdrawal entry
+      Entry entry = new Entry(
+          iban,
+          "Negative balance transaction",
+          ZonedDateTime.now().minusDays(random.nextInt(30)),
+          withdrawalAmount,
+          Entry.Type.WITHDRAW
+      );
+
+      try {
+        entriesService.makeEntry(iban, entry);
+        log.info("Created negative balance of {} for current account with IBAN: {}", 
+            account.getBalance(), iban);
+      } catch (InsufficientFundsException e) {
+        log.warn("Failed to create negative balance for account with IBAN: {}: {}", 
+            iban, e.getMessage());
+      }
     }
   }
 }

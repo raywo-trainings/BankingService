@@ -13,7 +13,7 @@ import java.util.UUID;
 @ToString
 public class Entry {
 
-  private String id;
+  private String id = UUID.randomUUID().toString();
   private String iban;
   private String description;
   private ZonedDateTime entryDate;
