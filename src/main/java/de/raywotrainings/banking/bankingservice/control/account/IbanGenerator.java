@@ -3,6 +3,7 @@ package de.raywotrainings.banking.bankingservice.control.account;
 import de.raywotrainings.banking.bankingservice.configuration.BankConfigurationData;
 import de.raywotrainings.banking.bankingservice.entity.account.AccountRepository;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
 import java.math.BigInteger;
@@ -26,7 +27,7 @@ public class IbanGenerator {
   }
 
 
-  private String calculateChecksum(String bban) {
+  private @NotNull String calculateChecksum(String bban) {
     String tmp = bban + bankConfig.getCountryCode() + "00";
     StringBuilder digits = new StringBuilder();
 
@@ -47,7 +48,7 @@ public class IbanGenerator {
   }
 
 
-  private String generateIban(String bic, long accountNumber) {
+  private @NotNull String generateIban(String bic, long accountNumber) {
     String bban = bic + String.format("%010d", accountNumber);
     String checkDigits = calculateChecksum(bban);
 
@@ -55,7 +56,7 @@ public class IbanGenerator {
   }
 
 
-  private long getNextAccountNumber(Set<String> existingIbans) {
+  private long getNextAccountNumber(@NotNull Set<String> existingIbans) {
     List<BigInteger> mappedIbans = existingIbans.stream()
         .map(a -> a.substring(12))
         .map(BigInteger::new)
@@ -71,7 +72,7 @@ public class IbanGenerator {
   }
 
 
-  private BigInteger getRandomAccountNumber() {
+  private @NotNull BigInteger getRandomAccountNumber() {
     BigInteger minValue = BigInteger.ONE;
     BigInteger maxValue = new BigInteger("99999");
     BigInteger range = maxValue.subtract(minValue).add(BigInteger.ONE);

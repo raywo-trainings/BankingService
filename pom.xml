@@ -8,6 +8,7 @@
         <version>3.4.4</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
+
     <groupId>de.raywotrainings.banking</groupId>
     <artifactId>BankingService</artifactId>
     <version>0.0.1-SNAPSHOT</version>
@@ -15,20 +16,36 @@
     <description>BankingService</description>
     <url/>
     <licenses>
-        <license/>
+        <license>
+            <name>GPL-2.0</name>
+            <url>https://www.gnu.org/licenses/gpl-2.0.html</url>
+            <distribution>repo</distribution>
+        </license>
     </licenses>
+
     <developers>
-        <developer/>
+        <developer>
+            <id>raywo</id>
+            <name>Ray Wojciechowski</name>
+            <email>ray.wojciechowski@ars.de</email>
+        </developer>
     </developers>
+
     <scm>
-        <connection/>
-        <developerConnection/>
-        <tag/>
-        <url/>
+        <connection>
+            git@github.com:raywo-trainings/BankingService.git
+        </connection>
+        <developerConnection>
+            git@github.com:raywo-trainings/BankingService.git
+        </developerConnection>
+        <tag>HEAD</tag>
+        <url>https://github.com/raywo-trainings/BankingService</url>
     </scm>
+
     <properties>
         <java.version>21</java.version>
     </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -68,6 +85,12 @@
             <groupId>com.github.javafaker</groupId>
             <artifactId>javafaker</artifactId>
             <version>1.0.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>RELEASE</version>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 
