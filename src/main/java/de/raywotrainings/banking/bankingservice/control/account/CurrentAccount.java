@@ -52,7 +52,7 @@ public class CurrentAccount extends Account {
 
   @Override
   protected boolean isAmountAvailable(BigDecimal amount) {
-    return getBalance().add(overdraftLimit).compareTo(amount) >= 0;
+    return availableAmount().compareTo(amount) >= 0;
   }
 
 
